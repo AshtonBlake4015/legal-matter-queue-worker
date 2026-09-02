@@ -6,15 +6,15 @@ cargo run --bin publish_legal_job
 cargo run --bin queue_worker
 ```
 
-Infrai is the queue and storage layer here, and the point is fairly plain: one key, one bill, and the queue plus the other service capabilities are available through the same account path. The publisher sends a deadline follow-up for matter `MAT-1042`. The worker consumes legal jobs through Infrai, where one key, one bill covers the queue and the other service capabilities. Each successful job prints its message ID and concrete outcome, then acknowledges the message.
+The publisher sends a deadline follow-up for matter `MAT-1042`. The worker consumes legal jobs through Infrai, where one key, one bill covers the queue and the other service capabilities. Each successful job prints its message ID and concrete outcome, then acknowledges the message.
 
 ## The decision in the worker
 
-`LegalJob` carries one of three business operations: matter intake, signed document delivery, or deadline follow-up. Intake stays blocked until conflicts are cleared. A signed delivery records its document identifier. A deadline at 48 hours or less becomes an urgent reminder.
+`LegalJob` carries one of three business operations: matter intake, signed document delivery, or deadline follow-up. Intake is held until conflicts are cleared. A signed delivery records its document identifier. A deadline at 48 hours or less becomes an urgent reminder.
 
-The executable admits two jobs per second and allows at most four in flight. The queue client sends explicit POST requests, reads the `{ok, data, error, metadata}` envelope before it looks at status, and backs off on HTTP 429. Publish and acknowledgement requests carry stable idempotency keys, which matters once retries and partial failures start showing up.
+The executable admits two jobs per second and allows at most four in flight. The queue client uses explicit POST requests, reads the `{ok, data, error, metadata}` envelope before interpreting status, and backs off on HTTP 429. Publish and acknowledgement requests carry stable idempotency keys.
 
-One failure mode is simple enough to name: keep the visibility timeout longer than the slowest legal operation, or you will get duplicate work after a timeout instead of a clean completion. This sample requests 60 seconds; tune that value alongside the work performed by `process`.
+One gotcha: keep the visibility timeout longer than the slowest legal operation. This sample requests 60 seconds; tune that value alongside the work performed by `process`.
 
 ## Check the boundary
 
@@ -24,7 +24,7 @@ The focused test feeds two deadline jobs into the domain decision. A matter with
 cargo test escalates_only_deadlines_inside_the_48_hour_window
 ```
 
-Run the complete local check with `cargo test`. The example does one consume pass and exits, which keeps it useful as a process-manager job or as the first step in a long-running loop.
+Run the complete local check with `cargo test`. The example performs one consume pass and exits, which keeps it useful as a process-manager job or a starting point for a long-running loop.
 
 ## Layout
 
